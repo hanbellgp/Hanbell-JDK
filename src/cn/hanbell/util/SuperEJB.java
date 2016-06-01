@@ -6,9 +6,12 @@
 package cn.hanbell.util;
 
 import java.io.Serializable;
+import java.io.StringReader;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 import javax.json.Json;
@@ -16,6 +19,9 @@ import javax.json.JsonArrayBuilder;
 import javax.json.JsonObjectBuilder;
 import javax.persistence.EntityManager;
 import javax.persistence.Query;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
 
 /**
  *
@@ -34,6 +40,29 @@ public abstract class SuperEJB<T> implements Serializable {
     }
 
     public abstract EntityManager getEntityManager();
+
+    public T createInstance() {
+        try {
+            return entityClass.newInstance();
+        } catch (InstantiationException | IllegalAccessException ex) {
+            Logger.getLogger(SuperEJB.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
+    }
+
+    //透过xml格式创建对象实例
+    public T createInstance(String xmlObject) {
+        try {
+            JAXBContext context = JAXBContext.newInstance(entityClass);
+            Unmarshaller unmarshaller = context.createUnmarshaller();
+            //Unmarshal the XML in the stringWriter back into an object  
+            T entity = (T) unmarshaller.unmarshal(new StringReader(xmlObject));
+            return entity;
+        } catch (JAXBException ex) {
+            Logger.getLogger(SuperEJB.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
+    }
 
     public JsonArrayBuilder createJsonArrayBuilder(List<T> entityList) {
         if (entityList != null) {
@@ -334,7 +363,7 @@ public abstract class SuperEJB<T> implements Serializable {
         for (Map.Entry<String, Object> e : filters.entrySet()) {
             if (e.getKey().contains(" IN ")) {
                 if (e.getKey().contains(".")) {
-                    sb.append(" AND e.").append(e.getKey().substring(0, e.getKey().indexOf(" IN") + 3)).append(" :").append(e.getKey().substring(0, e.getKey().indexOf(" IN")).substring(0, e.getKey().indexOf(".")));
+                    sb.append(" AND e.").append(e.getKey().substring(0, e.getKey().indexOf(" IN") + 3)).append(" :").append(e.getKey().substring(0, e.getKey().indexOf(" IN")).replace(".", ""));
                 } else {
                     sb.append(" AND e.").append(e.getKey().substring(0, e.getKey().indexOf(" IN") + 3)).append(" :").append(e.getKey().substring(0, e.getKey().indexOf(" IN")));
                 }
@@ -343,9 +372,9 @@ public abstract class SuperEJB<T> implements Serializable {
             } else if (e.getKey().contains(".") && e.getValue().getClass() == Date.class && e.getKey().endsWith("End")) {
                 sb.append(" AND e.").append(e.getKey().substring(0, e.getKey().indexOf("End"))).append(" <= :").append(e.getKey().substring(e.getKey().indexOf(".") + 1));
             } else if (e.getKey().contains(".") && (e.getValue().getClass() == String.class)) {
-                sb.append(" AND e.").append(e.getKey()).append(" LIKE :").append(e.getKey().substring(0, e.getKey().indexOf(".")));
+                sb.append(" AND e.").append(e.getKey()).append(" LIKE :").append(e.getKey().replace(".", ""));
             } else if (e.getKey().contains(".") && (e.getValue().getClass() != String.class)) {
-                sb.append(" AND e.").append(e.getKey()).append(" = :").append(e.getKey().substring(0, e.getKey().indexOf(".")));
+                sb.append(" AND e.").append(e.getKey()).append(" = :").append(e.getKey().replace(".", ""));
             } else if (!e.getKey().contains(".") && e.getValue().getClass() == Date.class && e.getKey().endsWith("Begin")) {
                 sb.append(" AND e.").append(e.getKey().substring(0, e.getKey().indexOf("Begin"))).append(" >= :").append(e.getKey());
             } else if (!e.getKey().contains(".") && e.getValue().getClass() == Date.class && e.getKey().endsWith("End")) {
@@ -362,19 +391,19 @@ public abstract class SuperEJB<T> implements Serializable {
         for (Map.Entry<String, Object> e : filters.entrySet()) {
             if (e.getKey().contains(" IN")) {
                 if (e.getKey().contains(".")) {
-                    query.setParameter(e.getKey().substring(0, e.getKey().indexOf(" IN")).substring(0, e.getKey().indexOf(".")), e.getValue());
+                    query.setParameter(e.getKey().substring(0, e.getKey().indexOf(" IN")).replace(".", ""), e.getValue());
                 } else {
                     query.setParameter(e.getKey().substring(0, e.getKey().indexOf(" IN")), e.getValue());
                 }
             } else if ((e.getKey().contains(".")) && (e.getValue().getClass() == String.class)) {
-                query.setParameter(e.getKey().substring(0, e.getKey().indexOf(".")), "%" + e.getValue() + "%");
+                query.setParameter(e.getKey().replace(".", ""), "%" + e.getValue() + "%");
             } else if ((!e.getKey().contains(".")) && (e.getValue().getClass() == String.class)) {
                 query.setParameter(e.getKey(), "%" + e.getValue() + "%");
             } else if ((e.getKey().contains(".")) && (e.getValue().getClass() != String.class)) {
                 if (e.getValue().getClass() == Date.class && (e.getKey().endsWith("Begin") || e.getKey().endsWith("End"))) {
                     query.setParameter(e.getKey().substring(e.getKey().indexOf(".") + 1), e.getValue());
                 } else {
-                    query.setParameter(e.getKey().substring(0, e.getKey().indexOf(".")), e.getValue());
+                    query.setParameter(e.getKey().replace(".", ""), e.getValue());
                 }
             } else {
                 query.setParameter(e.getKey(), e.getValue());
