@@ -8,6 +8,7 @@ package cn.hanbell.util;
 import java.io.Serializable;
 import java.io.StringReader;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -162,10 +163,10 @@ public abstract class SuperEJB<T> implements Serializable {
     }
 
     public String getFormId(Date day, String code, String format, int len) {
-        return getFormId(day, code, format, len, "formid");
+        return getFormId(day, code, format, len, this.className, "formid");
     }
 
-    public String getFormId(Date day, String code, String format, int len, String columnName) {
+    public String getFormId(Date day, String code, String format, int len, String tableName, String columnName) {
         String maxid, newid;
         int id;
         if (day != null && code != null && len > 0) {
@@ -175,7 +176,7 @@ public abstract class SuperEJB<T> implements Serializable {
             }
             int c = code.length();
             int f = d.length();
-            Query query = getEntityManager().createNativeQuery("select max(" + columnName + ") from  " + className
+            Query query = getEntityManager().createNativeQuery("select max(" + columnName + ") from  " + tableName
                     + " where substring(" + columnName + "," + 1 + "," + (c + f) + ")='" + (code + d) + "'");
             if (query.getSingleResult() != null) {
                 maxid = query.getSingleResult().toString();
