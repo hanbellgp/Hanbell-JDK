@@ -8,7 +8,6 @@ package cn.hanbell.util;
 import java.io.Serializable;
 import java.io.StringReader;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;

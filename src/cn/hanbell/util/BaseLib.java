@@ -8,6 +8,7 @@ package cn.hanbell.util;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
@@ -20,6 +21,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
@@ -30,6 +32,14 @@ import javax.json.JsonStructure;
 import javax.json.JsonWriter;
 import javax.json.JsonWriterFactory;
 import javax.json.stream.JsonGenerator;
+import javax.naming.AuthenticationException;
+import javax.naming.Context;
+import javax.naming.ldap.InitialLdapContext;
+import javax.naming.ldap.LdapContext;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
 import javax.xml.rpc.ServiceException;
 import org.apache.axis.client.Call;
 import org.apache.axis.client.Service;
@@ -39,6 +49,36 @@ import org.apache.axis.client.Service;
  * @author C0160
  */
 public class BaseLib {
+
+    public static boolean ADAuth(String host, String port, String account, String password) throws Exception {
+        Hashtable<String, String> property = new Hashtable<String, String>();
+        property.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory"); // LDAP工厂类  
+        property.put(Context.PROVIDER_URL, "ldap://" + host + ":" + port);// 默认端口389         
+        property.put(Context.SECURITY_AUTHENTICATION, "simple"); // LDAP访问安全级别(none,simple,strong)  
+        property.put(Context.SECURITY_PRINCIPAL, account); //AD账户
+        property.put(Context.SECURITY_CREDENTIALS, password); //AD密码  
+        property.put("com.sun.jndi.ldap.connect.timeout", "6000");//连接超时设置
+        LdapContext ctx = null;
+        try {
+            ctx = new InitialLdapContext(property, null);// 初始化上下文  
+            return true;
+        } catch (AuthenticationException ex) {
+            throw new Exception("身份验证失败!");
+        } catch (javax.naming.CommunicationException ex) {
+            throw new Exception("AD域连接失败!");
+        } catch (Exception ex) {
+            throw ex;
+        } finally {
+            if (null != ctx) {
+                try {
+                    ctx.close();
+                    ctx = null;
+                } catch (Exception ex) {
+                    throw ex;
+                }
+            }
+        }
+    }
 
     public static void buildJson(JsonStructure value, String fileFullName) throws IOException {
 
@@ -66,6 +106,25 @@ public class BaseLib {
 
     }
 
+    public static void convertObjectToXML(Class c, Object o, OutputStream os) throws JAXBException {
+        if (c != null && os != null && o != null) {
+            JAXBContext jaxb = JAXBContext.newInstance(c);
+            Marshaller marshaller = jaxb.createMarshaller();
+            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+            marshaller.setProperty(Marshaller.JAXB_ENCODING, "UTF-8");
+            marshaller.marshal(o, os);
+        }
+    }
+
+    public static <T> T convertXMLToObject(Class<T> c, InputStream is) throws JAXBException {
+        if (c == null || is == null) {
+            return null;
+        }
+        JAXBContext jaxb = JAXBContext.newInstance(c);
+        Unmarshaller unmarshaller = jaxb.createUnmarshaller();
+        return (T) unmarshaller.unmarshal(is);
+    }
+
     public static String formatDate(String format, Date date) {
         if (format != null && date != null) {
             SimpleDateFormat dateFormat = new SimpleDateFormat(format);
@@ -73,6 +132,13 @@ public class BaseLib {
         } else {
             return "";
         }
+    }
+
+    public static String formatString(String format, String value) {
+        if (value.length() >= format.length()) {
+            return value;
+        }
+        return format.substring(0, format.length() - value.length()) + value;
     }
 
     public static Call getAXISCall() throws ServiceException {
